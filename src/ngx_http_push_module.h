@@ -72,7 +72,7 @@ static ngx_int_t    ngx_http_push_node_info(ngx_http_request_t *r, ngx_uint_t qu
 static char *       ngx_http_push_listener(ngx_conf_t *cf, ngx_command_t *cmd, void *conf); //push_listener hook
 static ngx_int_t    ngx_http_push_listener_handler(ngx_http_request_t * r);
 
-static ngx_int_t    ngx_http_push_set_listener_header(ngx_http_request_t *r, ngx_str_t *content_type);
+static ngx_int_t    ngx_http_push_set_listener_header(ngx_http_request_t *r, ngx_str_t *content_type, off_t content_length);
 static ngx_chain_t* ngx_http_push_create_output_chain(ngx_http_request_t *r, ngx_buf_t *buf);
 static ngx_int_t    ngx_http_push_set_listener_body(ngx_http_request_t *r, ngx_chain_t *out);
 

@@ -199,7 +199,7 @@ static ngx_int_t ngx_http_push_listener_handler(ngx_http_request_t *r) {
 			
 			ngx_shmtx_lock(&shpool->mutex);
 		}
-		rc = ngx_http_push_set_listener_header(r, &msg->content_type); //content type is copied
+		rc = ngx_http_push_set_listener_header(r, &msg->content_type, ngx_buf_size(msg->buf)); //content type is copied
 		out = ngx_http_push_create_output_chain(r, msg->buf); 	//buffer is copied
 		out->buf->file=file;
 		//we no longer need the message and can free its shm slab.
@@ -364,7 +364,9 @@ static void ngx_http_push_sender_body_handler(ngx_http_request_t * r) {
 			// Send the message to each listener 
 			TAILQ_FOREACH(request, &node->requests, next) {
 				r_listener = request->request;
-				rc = ngx_http_push_set_listener_header(r_listener, (content_type_len>0 ? &r->headers_in.content_type->value : NULL));
+				
+				rc = ngx_http_push_set_listener_header(r_listener, 
+					(content_type_len>0 ? &r->headers_in.content_type->value : NULL), r->headers_in.content_length_n);
 				if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
 					ngx_http_finalize_request(r_listener, rc);
 					ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -379,7 +381,6 @@ static void ngx_http_push_sender_body_handler(ngx_http_request_t * r) {
 				
 				_push_log_debug(r, id, "publish/send scheduling listener %p for finalization", r_listener);
 				
-				// todo: potential problem: can buf be re-sent over and over?
 				ngx_http_finalize_request(r_listener, 
 					ngx_http_push_set_listener_body(r_listener, 
 						ngx_http_push_create_output_chain(r_listener, buf)));
@@ -509,7 +510,7 @@ static ngx_int_t ngx_http_push_sender_handler(ngx_http_request_t * r) {
 	return NGX_DONE;
 }
 
-static ngx_int_t ngx_http_push_set_listener_header(ngx_http_request_t *r, ngx_str_t *content_type) {
+static ngx_int_t ngx_http_push_set_listener_header(ngx_http_request_t *r, ngx_str_t *content_type, off_t content_length) {
 	//content-type is _copied_
 	if (content_type!=NULL && content_type->data!=NULL && content_type->len > 0) {
 		r->headers_out.content_type.len=content_type->len;
@@ -519,7 +520,8 @@ static ngx_int_t ngx_http_push_set_listener_header(ngx_http_request_t *r, ngx_st
 		}
 		ngx_memcpy(r->headers_out.content_type.data, content_type->data, content_type->len);
 	}
-	r->headers_out.status=NGX_HTTP_OK;
+	r->headers_out.content_length_n = content_length;
+	r->headers_out.status = NGX_HTTP_OK;
 	return NGX_OK;
 }
 
