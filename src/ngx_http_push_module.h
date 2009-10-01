@@ -9,10 +9,13 @@ typedef struct {
 	ngx_int_t                       index;
 	time_t                          buffer_timeout;
 	ngx_flag_t                      buffer_enabled;
-	ngx_flag_t                      multiple_listeners;
+	ngx_str_t                       listener_queueing;
 } ngx_http_push_loc_conf_t;
 
 #define NGX_HTTP_PUSH_DEFAULT_BUFFER_TIMEOUT 3600
+
+#define NGX_HTTP_PUSH_LQUEUEING_UNIQUE 0
+#define NGX_HTTP_PUSH_LQUEUEING_BROADCAST 1
 
 typedef struct {
 	size_t                          shm_size;

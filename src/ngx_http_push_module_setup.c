@@ -14,11 +14,11 @@ static ngx_command_t  ngx_http_push_commands[] = {
       offsetof(ngx_http_push_loc_conf_t, buffer_enabled),
       NULL },
 
-    { ngx_string("push_multiple_listeners"),
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
-      ngx_conf_set_flag_slot,
+    { ngx_string("push_listener_queueing"), // "unique"* | "broadcast"
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_push_loc_conf_t, multiple_listeners),
+      offsetof(ngx_http_push_loc_conf_t, listener_queueing),
       NULL },
 
     { ngx_string("push_buffer_size"),
@@ -28,7 +28,7 @@ static ngx_command_t  ngx_http_push_commands[] = {
       offsetof(ngx_http_push_main_conf_t, shm_size),
       NULL },
 
-	{ ngx_string("push_sender"),
+    { ngx_string("push_sender"),
       NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
       ngx_http_push_sender,
       NGX_HTTP_LOC_CONF_OFFSET,
@@ -147,7 +147,6 @@ static void *		ngx_http_push_create_loc_conf(ngx_conf_t *cf) {
 	}
 	lcf->buffer_timeout = NGX_CONF_UNSET;
 	lcf->buffer_enabled = NGX_CONF_UNSET;
-	lcf->multiple_listeners = NGX_CONF_UNSET;
 	return lcf;
 }
 static char *	ngx_http_push_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child) {
@@ -155,7 +154,8 @@ static char *	ngx_http_push_merge_loc_conf(ngx_conf_t *cf, void *parent, void *c
 	ngx_http_push_loc_conf_t       *conf = child;
 	ngx_conf_merge_sec_value(conf->buffer_timeout, prev->buffer_timeout, NGX_HTTP_PUSH_DEFAULT_BUFFER_TIMEOUT);
 	ngx_conf_merge_value(conf->buffer_enabled, prev->buffer_enabled, 1);
-	ngx_conf_merge_value(conf->multiple_listeners, prev->multiple_listeners, 1);
+	if (conf->listener_queueing.data == NULL)
+		conf->listener_queueing = prev->listener_queueing;
 	return NGX_CONF_OK;
 }
 
