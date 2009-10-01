@@ -10,31 +10,30 @@ an HTTP request to a different location.
 ## Example config
 
 	http {
-	  #maximum amount of memory the push module is allowed to use 
-	  #for buffering and stuff
-	  push_buffer_size	12M; #default is 3M
-
-	  #sender
+	  # Sending
 	  server {
-	  listen       localhost:8089; 
+	    listen   localhost:8089;
 	    location / {
 	      default_type  text/plain;
-	      set $push_id $arg_id; #/?id=239aff3 or somesuch
+	      set $push_id $arg_channel; #/?channel=a or somesuch
 	      push_sender;
 	      push_message_timeout 2h; #buffered messages expire after 2 hours
 	    }
 	  }
-
-	  #receiver
+	
+	  # Receiving
 	  server {
 	    listen       8088;
 	    location / {
 	      default_type  text/plain;
-	      set $push_id $arg_id; #/?id=239aff3 or somesuch
+	      set $push_id $arg_channel; #/?channel=a or somesuch
 	      push_listener;
 	    }
 	  }
 	}
+
+See section "Alternative example config" further down for a simpler example 
+where no distinction or security is needed for posting messages.
 
 ## Practical example
 
@@ -68,6 +67,8 @@ a message to them.
 
 ### Directives
 
+#### `push_sender`
+
 	push_sender
 	  default: none
 	  context: server, location
@@ -76,7 +77,7 @@ Defines a server or location as the sender. Requests from a sender will be
 treated as messages to send to listeners.See protocol documentation 
 for more info.
 
----
+#### `push_listener`
 
 	push_listener
 	  default: none
@@ -86,17 +87,17 @@ Defines a server or location as a listener. Requests from a listener will
 not be responded to until a message for the listener (identified by 
 $push_id) becomes available. See protocol documentation for more info.
 
----
+#### `push_listener_concurrency`
 
-	push_listener_concurrency [ last | broadcast ]
+	push_listener_concurrency  last | broadcast
 	  default: last
 	  context: http, server, location
   
 Controls how listeners to the same channel id are handled. If `last` (default) is set, only the most recently connected listener to a channel will receive a message. If the value is set to `broadcast` all listeners to a channel will receive a message.
 
----
+#### `push_queue_messages`
 
-	push_queue_messages [ on | off ]
+	push_queue_messages  on | off
 	  default: on
 	  context: http, server, location
   
@@ -104,9 +105,9 @@ Whether or not message queuing is enabled. If set to off, messages will be
 delivered only if a push_listener connection is already present for the id. 
 Applicable only if a push_sender is present in this or a child context. 
 
----
+#### `push_message_timeout`
 
-	push_message_timeout [ time ]
+	push_message_timeout  <time>
 	  default: 1h
 	  context: http, server, location
 
@@ -114,18 +115,19 @@ How long a message may be queued before it is considered expired. If you do
 not want messages to expire, set this to 0. Applicable only if a push_sender 
 is present in this or a child context. 
 
----
+#### `push_buffer_size`
 
-	push_buffer_size [ size ]
+	push_buffer_size  <size>
 	  default: 3M
 	  context: http
 
 The size of the memory chunk this module will use for all message queuing 
 and buffering. 
 
+
 ### Variables
 
-	$push_id
+#### `$push_id`
 
 The channel id associated with a `push_listener` or `push_sender`. Must be present next
 to said directives.
@@ -185,7 +187,7 @@ See [queuing-long-poll-relay-protocol](http://wiki.github.com/slact/nginx_http_p
 ## Todo
 
 - Add "first" (first in gets the message) functionality/switch to
-  `push_listener_concurrency` (see prepared code in ngx_http_push_listener_handler)
+  `push_listener_concurrency` (see prepared code in `ngx_http_push_listener_handler`)
 
 - Add other mechanisms of server pushing. The list should include
   "long-poll" (default), "interval-poll".
@@ -200,5 +202,26 @@ See [queuing-long-poll-relay-protocol](http://wiki.github.com/slact/nginx_http_p
 
 # Note on this branch of the source
 
-This branch have been developed by Rasmus Andersson to introduce concurrent listeners. Essentially the `push_listener_concurrency` option has been added.
+This branch have been developed by Rasmus Andersson to introduce concurrent 
+listeners. Essentially the `push_listener_concurrency` option has been added.
 
+
+## Alternative example config
+
+If there is no need for network-level security to protect sending/posting of 
+messages, you can use the same server for sending and listening:
+
+	http {
+	  server {
+	    listen        localhost:8088;
+	    default_type  text/plain;
+	    location /send {
+	      set $push_id $arg_channel; #/?channel=a or somesuch
+	      push_sender;
+	    }
+	    location /listen {
+	      set $push_id $arg_channel; #/?channel=a or somesuch
+	      push_listener;
+	    }
+	  }
+	}
