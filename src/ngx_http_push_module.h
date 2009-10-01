@@ -2,11 +2,14 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+#include <sys/queue.h>
+
 //with the declarations
 typedef struct {
 	ngx_int_t                       index;
 	time_t                          buffer_timeout;
 	ngx_flag_t                      buffer_enabled;
+	ngx_flag_t                      multiple_listeners;
 } ngx_http_push_loc_conf_t;
 
 #define NGX_HTTP_PUSH_DEFAULT_BUFFER_TIMEOUT 3600
@@ -33,14 +36,25 @@ typedef struct {
 	ngx_slab_pool_t                *shpool;
 }  ngx_http_push_listener_cleanup_t;
 
+struct ngx_http_push_request_s {
+	ngx_http_request_t             *request;
+	TAILQ_ENTRY(ngx_http_push_request_s)	next;
+};
+
+// ngx_http_push_nodes_s: struct for linked list of ngx_http_push_node_s structs
+TAILQ_HEAD(ngx_http_push_requests_s, ngx_http_push_request_s);
+
+typedef struct ngx_http_push_request_s ngx_http_push_request_t;
+typedef struct ngx_http_push_requests_s ngx_http_push_requests_t;
+
 //our typecast-friendly rbtree node
 struct ngx_http_push_node_s {
-	ngx_rbtree_node_t               node;
-	ngx_str_t                       id;
-    ngx_http_push_msg_t            *message_queue;
-	ngx_uint_t                      message_queue_size;
-	ngx_http_request_t             *request;
-	time_t                          last_seen;
+	ngx_rbtree_node_t                node;
+	ngx_str_t                        id;
+	ngx_http_push_msg_t              *message_queue;
+	ngx_uint_t                       message_queue_size;
+	ngx_http_push_requests_t         requests;
+	time_t                           last_seen;
 	ngx_http_push_listener_cleanup_t *cleanup;
 };
 

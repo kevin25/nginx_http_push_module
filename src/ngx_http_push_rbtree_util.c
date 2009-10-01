@@ -17,7 +17,7 @@ static ngx_http_push_node_t *	clean_node(ngx_http_push_node_t * node, ngx_slab_p
 	while(!ngx_queue_empty(sentinel)){
 		msg = ngx_queue_data(ngx_queue_head(sentinel), ngx_http_push_msg_t, queue);
 		if (msg!=NULL && msg->expires != 0 && now > msg->expires) {
-			node->message_queue_len--;
+			node->message_queue_size--;
 			ngx_queue_remove((&msg->queue));
 			ngx_slab_free_locked(shpool, msg);
 		}
@@ -26,7 +26,7 @@ static ngx_http_push_node_t *	clean_node(ngx_http_push_node_t * node, ngx_slab_p
 		}
 	}
 	//at this point, the queue is empty
-	return node->request==NULL ? node : NULL; //if no request, return this node to be deleted
+	return TAILQ_EMPTY(&node->requests) ? node : NULL; //if no requests, return this node to be deleted
 }
 static ngx_int_t ngx_http_push_delete_node(ngx_rbtree_t *tree, ngx_rbtree_node_t *trash, ngx_slab_pool_t *shpool) {
 //assume the shm zone is already locked
@@ -104,6 +104,8 @@ static ngx_http_push_node_t *	find_node(
 }
 
 //find a node. if node not found, make one, insert it, and return that.
+// Note: this function should always be called with shpool locked, as it does
+//       not perform any pool locking when allocating memory.
  static ngx_http_push_node_t *	get_node(
 			ngx_str_t              *id, 
 			ngx_rbtree_t           *tree, 
@@ -125,8 +127,10 @@ static ngx_http_push_node_t *	find_node(
 	ngx_memcpy(up->id.data, id->data, up->id.len);
 	up->node.key = ngx_crc32_short(id->data, id->len);
 	ngx_rbtree_insert(tree, (ngx_rbtree_node_t *) up);
-
-	up->request=NULL;
+	
+	// init requests
+	TAILQ_INIT(&up->requests);
+	
 	//initialize queues
 	up->message_queue = ngx_slab_alloc_locked (shpool, sizeof(ngx_http_push_msg_t));
 	if (up->message_queue==NULL) {

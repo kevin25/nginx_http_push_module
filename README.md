@@ -91,7 +91,7 @@ and buffering.
 
 	$push_id
 
-The id associated with a push_listener or push_sender. Must be present next
+The id associated with a `push_listener` or `push_sender`. Must be present next
 to said directives.
 
 Example:
@@ -106,12 +106,12 @@ response delayed until a message is POSTed to `http://localhost:8089/?id=...`
 Messages can be sent to clients that have not yet connected, i.e. they are 
 queued.
 
-Upon sending a request to a push_sender location, the server will respond with 
+Upon sending a request to a `push_sender` location, the server will respond with 
 a `201 Created` if the message has been sent. If it must be queued up (i.e. the 
-push_listener with this id is presently connected), a `202 Accepted` will be sent.
+`push_listener` with this id is presently connected), a `202 Accepted` will be sent.
  
-If you indend to have the push_sender be a server-side application, 
-it's a damn good idea to make sure the push_server location is not visible
+If you indend to have the `push_sender` be a server-side application, 
+it's a damn good idea to make sure the `push_server` location is not visible
 publically, as it is intended for use only by your application.
 
 ## "Protocol" spec
@@ -120,17 +120,17 @@ See [queuing-long-poll-relay-protocol](http://wiki.github.com/slact/nginx_http_p
 
 ## Todo
 
-- Add a directive apply to push_listeners regarding what to do when 
+- Add a directive apply to `push_listeners` regarding what to do when 
   multiple simultaneous requests with the same $push_id are received.
   Options will be "unique", "broadcast", "fifo" and "filo".
 
 - Add other mechanisms of server pushing. The list should include
   "long-poll" (default), "interval-poll".
 
-- Add a push_accomodate_strangers setting (presently defaulting to on). 
-  When set to off, requests with a previously-unseen $push_id 
+- Add a `push_accomodate_strangers` setting (presently defaulting to on). 
+  When set to off, requests with a previously-unseen `$push_id` 
   will be rejected. 
 
-- When POSTing to push_server, if Content-Type is "message/http", the 
-  response sent to $push_id should be created from the body of the request.
+- When `POST`ing to `push_server`, if Content-Type is "message/http", the 
+  response sent to `$push_id` should be created from the body of the request.
 
