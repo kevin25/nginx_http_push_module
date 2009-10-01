@@ -1,6 +1,6 @@
 # Nginx HTTP push module
 
-Turn nginx into a long-polling push server that relays messages. 
+Turn nginx into a _long-polling push_ server that relays messages. 
 
 If you want a long-polling server but don't want to wait on idle connections 
 via upstream proxies, use this module to have nginx accept and hold 
@@ -36,6 +36,34 @@ an HTTP request to a different location.
 	  }
 	}
 
+## Practical example
+
+_This assumes you have built nginx with this module._
+
+First time we need to create nginx log files or it will cry like a little baby:
+
+	$ mkdir -p logs
+	$ touch logs/access.log logs/error.log
+
+Now, lets start nginx with the example configuration (nginx.conf). `cd` to the 
+directory of this module's source and:
+
+	$ nginx -c nginx.conf -p `pwd`/
+
+_Note that nginx will stay in foreground (daemon set to off in nginx.conf)_
+
+In a new terminal, listen for a message:
+
+	$ curl localhost:8088/?channel=a
+
+In another new terminal, send a message:
+
+	$ curl -d 'hello' localhost:8089/?channel=a
+
+You can try to launch several listeners on the same channel and broadcast
+a message to them.
+
+
 ## Configuration directives & variables
 
 ### Directives
@@ -46,7 +74,7 @@ an HTTP request to a different location.
 
 Defines a server or location as the sender. Requests from a sender will be 
 treated as messages to send to listeners.See protocol documentation 
-for more info. 
+for more info.
 
 ---
 
@@ -56,7 +84,15 @@ for more info.
   
 Defines a server or location as a listener. Requests from a listener will 
 not be responded to until a message for the listener (identified by 
-$push_id) becomes available. See protocol documentation for more info. 
+$push_id) becomes available. See protocol documentation for more info.
+
+---
+
+	push_listener_concurrency [ last | broadcast ]
+	  default: last
+	  context: http, server, location
+  
+Controls how listeners to the same channel id are handled. If `last` (default) is set, only the most recently connected listener to a channel will receive a message. If the value is set to `broadcast` all listeners to a channel will receive a message.
 
 ---
 
@@ -91,18 +127,36 @@ and buffering.
 
 	$push_id
 
-The id associated with a `push_listener` or `push_sender`. Must be present next
+The channel id associated with a `push_listener` or `push_sender`. Must be present next
 to said directives.
 
-Example:
+Identifies the channel of communication:
+
+                sender
+                  ||
+                  ||
+               [message]
+                  ||
+                  \/
+        ----------------------
+          channel {$push_id} 
+        ----------------------
+          ||      ||      ||
+          \/      ||      \/
+       listener   ||   listener
+                  \/
+               listener
+
+Config example:
 
 	set $push_id $arg_id #$push_id is now the url parameter "id"
 
 
 ## Operation
+
 Assuming the example config given above:
-Clients will connect to `http://example.com:8088/?id=...` and have the 
-response delayed until a message is POSTed to `http://localhost:8089/?id=...`
+Clients will `GET http://example.com:8088/?id=...` and have the 
+response delayed until a message is `POST`ed to `http://localhost:8089/?id=...`
 Messages can be sent to clients that have not yet connected, i.e. they are 
 queued.
 
@@ -114,15 +168,24 @@ If you indend to have the `push_sender` be a server-side application,
 it's a damn good idea to make sure the `push_server` location is not visible
 publically, as it is intended for use only by your application.
 
+
+## Building & Installation
+
+Configure and build nginx with this module. Example:
+
+	$ ./configure --add-module=path/to/nginx_http_push_module
+	$ make
+
+
 ## "Protocol" spec
 
 See [queuing-long-poll-relay-protocol](http://wiki.github.com/slact/nginx_http_push_module/queuing-long-poll-relay-protocol)
 
+
 ## Todo
 
-- Add a directive apply to `push_listeners` regarding what to do when 
-  multiple simultaneous requests with the same $push_id are received.
-  Options will be "unique", "broadcast", "fifo" and "filo".
+- Add "first" (first in gets the message) functionality/switch to
+  `push_listener_concurrency` (see prepared code in ngx_http_push_listener_handler)
 
 - Add other mechanisms of server pushing. The list should include
   "long-poll" (default), "interval-poll".
@@ -133,4 +196,9 @@ See [queuing-long-poll-relay-protocol](http://wiki.github.com/slact/nginx_http_p
 
 - When `POST`ing to `push_server`, if Content-Type is "message/http", the 
   response sent to `$push_id` should be created from the body of the request.
+
+
+# Note on this branch of the source
+
+This branch have been developed by Rasmus Andersson to introduce concurrent listeners. Essentially the `push_listener_concurrency` option has been added.
 

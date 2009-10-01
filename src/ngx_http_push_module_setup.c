@@ -14,11 +14,11 @@ static ngx_command_t  ngx_http_push_commands[] = {
       offsetof(ngx_http_push_loc_conf_t, buffer_enabled),
       NULL },
 
-    { ngx_string("push_listener_queueing"), // "unique"* | "broadcast"
+    { ngx_string("push_listener_concurrency"), // last* | broadcast
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_push_loc_conf_t, listener_queueing),
+      offsetof(ngx_http_push_loc_conf_t, listener_concurrency),
       NULL },
 
     { ngx_string("push_buffer_size"),
@@ -154,8 +154,8 @@ static char *	ngx_http_push_merge_loc_conf(ngx_conf_t *cf, void *parent, void *c
 	ngx_http_push_loc_conf_t       *conf = child;
 	ngx_conf_merge_sec_value(conf->buffer_timeout, prev->buffer_timeout, NGX_HTTP_PUSH_DEFAULT_BUFFER_TIMEOUT);
 	ngx_conf_merge_value(conf->buffer_enabled, prev->buffer_enabled, 1);
-	if (conf->listener_queueing.data == NULL)
-		conf->listener_queueing = prev->listener_queueing;
+	if (conf->listener_concurrency.data == NULL)
+		conf->listener_concurrency = prev->listener_concurrency;
 	return NGX_CONF_OK;
 }
 

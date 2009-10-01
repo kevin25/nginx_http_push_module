@@ -10,7 +10,9 @@
 #include <ngx_http_push_rbtree_util.c>
 #include <ngx_http_push_module_setup.c>
 
-#define _push_log_debug(_r, _id, _fmt, ...) ngx_log_error(NGX_LOG_DEBUG, (_r)->connection->log, 0, "[push %s] " _fmt, (_id).data, ##__VA_ARGS__)
+//#define _push_log_debug(_r, _id, _fmt, ...) ngx_log_error(NGX_LOG_DEBUG, (_r)->connection->log, 0, "[push %s] " _fmt, (_id).data, ##__VA_ARGS__)
+#define _push_log_debug(_r, _id, _fmt, ...)
+
 
 static ngx_http_push_msg_t * ngx_http_push_dequeue_message(ngx_http_push_node_t * node){ //does NOT free associated memory.
 	ngx_queue_t                    *sentinel = &node->message_queue->queue; 
@@ -81,9 +83,9 @@ static ngx_int_t ngx_http_push_listener_handler(ngx_http_request_t *r) {
 	ngx_http_push_node_t           *node;
 	ngx_http_push_msg_t            *msg;
 	ngx_http_push_request_t        *request;
-	int listener_queueing;
+	int listener_concurrency;
 	
-	if (r->method != NGX_HTTP_POST) {
+	if (r->method != NGX_HTTP_GET) {
 		return NGX_HTTP_NOT_ALLOWED;
 	}
 	
@@ -93,9 +95,12 @@ static ngx_int_t ngx_http_push_listener_handler(ngx_http_request_t *r) {
 	
 	_push_log_debug(r, id, "new subscriber/listener");
 	
-	listener_queueing = (cf->listener_queueing.data == NULL 
-		|| ngx_strncmp(cf->listener_queueing.data, "unique", cf->listener_queueing.len) == 0)
-		? NGX_HTTP_PUSH_LQUEUEING_UNIQUE : NGX_HTTP_PUSH_LQUEUEING_BROADCAST;
+	listener_concurrency = (cf->listener_concurrency.data == NULL 
+		|| ngx_strncmp(cf->listener_concurrency.data, "broadcast", cf->listener_concurrency.len) == 0)
+		? NGX_HTTP_PUSH_LQUEUEING_BROADCAST :/* enable when NGX_HTTP_PUSH_LQUEUEING_FIRSTIN is implemented
+			(cf->listener_concurrency.data
+			&& ngx_strncmp(cf->listener_concurrency.data, "first", cf->listener_concurrency.len) == 0)
+			? NGX_HTTP_PUSH_LQUEUEING_FIRSTIN :*/ NGX_HTTP_PUSH_LQUEUEING_LASTIN;
 	
 	ngx_shmtx_lock(&shpool->mutex);
 	node = get_node(&id, ngx_http_push_shm_zone->data, shpool, r->connection->log);
@@ -107,21 +112,25 @@ static ngx_int_t ngx_http_push_listener_handler(ngx_http_request_t *r) {
 	//don't care about the rest of this request
 	ngx_http_discard_request_body(r);
 	
-	// check if we are only allowed to keep ONE (or a limit?) request (listener)
-	// go forward and send <409 Conflict> to the previous request(s).
-	// multiple_listeners is a conf bool called "push_multiple_listeners".
-	if (listener_queueing == NGX_HTTP_PUSH_LQUEUEING_UNIQUE && !TAILQ_EMPTY(&node->requests)) {
-		_push_log_debug(r, id, "sending 409 Conflict to old req(s)");
-		ngx_shmtx_lock(&shpool->mutex);
-		//we don't want the listener request cleanup to accidentally access an already freed node on cleanup
-		if (node->cleanup != NULL)
-			node->cleanup->node = NULL;
-		TAILQ_FOREACH(request, &node->requests, next) {
-			ngx_http_finalize_request(request->request, NGX_HTTP_CONFLICT); //bump the old request.
-			ngx_slab_free_locked(shpool, request); // note: not freeing request->request, but the q entry only
+	// concurrent listeners
+	if (!TAILQ_EMPTY(&node->requests)) {
+		// check if we are only allowed to keep ONE (or a limit?) request (listener)
+		// go forward and send <409 Conflict> to the previous request(s).
+		// multiple_listeners is a conf bool called "push_multiple_listeners".
+		if (listener_concurrency == NGX_HTTP_PUSH_LQUEUEING_LASTIN) {
+			_push_log_debug(r, id, "sending 409 Conflict to previous listener(s)");
+			ngx_shmtx_lock(&shpool->mutex);
+			//we don't want the listener request cleanup to accidentally access an already freed node on cleanup
+			if (node->cleanup != NULL)
+				node->cleanup->node = NULL;
+			TAILQ_FOREACH(request, &node->requests, next) {
+				ngx_http_finalize_request(request->request, NGX_HTTP_CONFLICT);
+				ngx_slab_free_locked(shpool, request); // note: not freeing request->request, only the tailq entry
+			}
+			TAILQ_INIT(&node->requests); // clear queue
+			ngx_shmtx_unlock(&shpool->mutex);
 		}
-		TAILQ_INIT(&node->requests); // clear queue
-		ngx_shmtx_unlock(&shpool->mutex);
+		// todo implement: else if (listener_concurrency == NGX_HTTP_PUSH_LQUEUEING_FIRSTIN) {...
 	}
 	
 	ngx_shmtx_lock(&shpool->mutex);
