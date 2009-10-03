@@ -144,9 +144,6 @@ static ngx_int_t ngx_http_push_listener_handler(ngx_http_request_t *r) {
 		ngx_pool_cleanup_t *cln = ngx_pool_cleanup_add(r->pool, sizeof(ngx_http_push_listener_cleanup_t));
 		if (cln == NULL) //make sure we can.
 			return NGX_ERROR;
-		ngx_shmtx_lock(&shpool->mutex);
-		request->cleanup = ((ngx_http_push_listener_cleanup_t *) cln->data);
-		ngx_shmtx_unlock(&shpool->mutex);
 		cln->handler = (ngx_pool_cleanup_pt) ngx_http_push_listener_cleanup;
 		((ngx_http_push_listener_cleanup_t *) cln->data)->node = node;
 		((ngx_http_push_listener_cleanup_t *) cln->data)->request = request;

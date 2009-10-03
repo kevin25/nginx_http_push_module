@@ -42,7 +42,6 @@ typedef struct {
 
 struct ngx_http_push_request_s {
 	ngx_http_request_t               *request;
-	ngx_http_push_listener_cleanup_t *cleanup;
 	TAILQ_ENTRY(ngx_http_push_request_s)	next;
 };
 
