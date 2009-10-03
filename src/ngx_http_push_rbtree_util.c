@@ -13,10 +13,10 @@ static ngx_http_push_node_t *	clean_node(ngx_http_push_node_t * node, ngx_slab_p
 static ngx_http_push_node_t *	clean_node(ngx_http_push_node_t * node, ngx_slab_pool_t * shpool) {
 	ngx_queue_t                 *sentinel = &node->message_queue->queue;
 	time_t                       now = ngx_time();
-	ngx_http_push_msg_t         *msg=NULL;
-	while(!ngx_queue_empty(sentinel)){
+	ngx_http_push_msg_t         *msg = NULL;
+	while (!ngx_queue_empty(sentinel)) {
 		msg = ngx_queue_data(ngx_queue_head(sentinel), ngx_http_push_msg_t, queue);
-		if (msg!=NULL && msg->expires != 0 && now > msg->expires) {
+		if (msg != NULL && msg->expires != 0 && now > msg->expires) {
 			node->message_queue_size--;
 			ngx_queue_remove((&msg->queue));
 			ngx_slab_free_locked(shpool, msg);
@@ -49,12 +49,12 @@ static ngx_http_push_node_t *	find_node(
 	ngx_int_t                       rc;
 	ngx_http_push_node_t           *up = NULL;
 	ngx_http_push_node_t           *trash = NULL;
-	if (tree==NULL) {
+	
+	if (tree == NULL) {
 		return NULL;
 	}
 	
 	hash = ngx_crc32_short(id->data, id->len);
-
 	node = tree->root;
 	sentinel = tree->sentinel;
 
@@ -71,19 +71,18 @@ static ngx_http_push_node_t *	find_node(
 		}
 
 		//every search is responsible for deleting one empty node, if it comes across one
-		if (trash==NULL) {
-			trash=clean_node((ngx_http_push_node_t *) node, shpool);
+		if (trash == NULL) {
+			trash = clean_node((ngx_http_push_node_t *) node, shpool);
 		}
 		
 		/* hash == node->key */
 
 		do {
 			up = (ngx_http_push_node_t *) node;
-
 			rc = ngx_memn2cmp(id->data, up->id.data, id->len, up->id.len);
 
 			if (rc == 0) {
-				if(trash != up){ //take out the trash
+				if (trash != up) { //take out the trash
 					ngx_http_push_delete_node(tree, (ngx_rbtree_node_t *) trash, shpool);
 				}
 				clean_node(up, shpool);
@@ -97,7 +96,7 @@ static ngx_http_push_node_t *	find_node(
 		break;
 	}
 	//not found	
-	if(trash != up){ //take out the trash
+	if (trash != up) { //take out the trash
 		ngx_http_push_delete_node(tree, (ngx_rbtree_node_t *) trash, shpool);
 	}
 	return NULL;

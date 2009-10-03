@@ -35,13 +35,14 @@ typedef struct ngx_http_push_node_s ngx_http_push_node_t;
 
 //cleaning supplies
 typedef struct {
-	ngx_http_request_t             *request;
+	struct ngx_http_push_request_s *request;
 	ngx_http_push_node_t           *node;
 	ngx_slab_pool_t                *shpool;
-}  ngx_http_push_listener_cleanup_t;
+} ngx_http_push_listener_cleanup_t;
 
 struct ngx_http_push_request_s {
-	ngx_http_request_t             *request;
+	ngx_http_request_t               *request;
+	ngx_http_push_listener_cleanup_t *cleanup;
 	TAILQ_ENTRY(ngx_http_push_request_s)	next;
 };
 
@@ -59,7 +60,6 @@ struct ngx_http_push_node_s {
 	ngx_uint_t                       message_queue_size;
 	ngx_http_push_requests_t         requests;
 	time_t                           last_seen;
-	ngx_http_push_listener_cleanup_t *cleanup;
 };
 
 //sender stuff
