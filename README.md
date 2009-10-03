@@ -200,7 +200,7 @@ See [queuing-long-poll-relay-protocol](http://wiki.github.com/slact/nginx_http_p
   response sent to `$push_id` should be created from the body of the request.
 
 
-# Note on this branch of the source
+## Note on this branch of the source
 
 This branch have been developed by Rasmus Andersson to introduce concurrent 
 listeners. Essentially the `push_listener_concurrency` option has been added.
