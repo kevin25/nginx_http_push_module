@@ -200,10 +200,17 @@ See [queuing-long-poll-relay-protocol](http://wiki.github.com/slact/nginx_http_p
   response sent to `$push_id` should be created from the body of the request.
 
 
+## License
+
+This software is licensed under MIT.
+
+See details in the file `LICENSE`.
+
+
 ## Note on this branch of the source
 
-This branch have been developed by Rasmus Andersson to introduce concurrent 
-listeners. Essentially the `push_listener_concurrency` option has been added.
+This branch was intially created by Rasmus Andersson who introduced concurrent 
+listeners (broadcasting).
 
 
 ## Alternative example config
